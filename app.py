@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-BOT_TOKEN = os.getenv("6730567676:AAFfMaZCIbPUj2X9T7ZdVWsFtwlwRd3oN14")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADLINKFLY_API_KEY = os.getenv("1bcc116665dd337316ea03fcf10b088074fe4993")
 ADLINKFLY_DOMAIN = os.getenv("vipurl.in")
 BLACKLISTED_DOMAINS = ["example.com", "spam.com"]  # Add blacklisted domains here
