@@ -115,7 +115,7 @@ def webhook():
 if __name__ == "__main__":
     # Initialize the bot and the application
     bot = Bot(token={BOT_TOKEN})
-    application = Application.builder().token{BOT_TOKEN}.build()
+    application = Application.builder().token={BOT_TOKEN}.build()
     
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
