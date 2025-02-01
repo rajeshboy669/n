@@ -1,9 +1,9 @@
 import os
 import re
-import requests
 from flask import Flask, request
-from telegram import Update, Bot
+from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import requests
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -17,8 +17,12 @@ MONGO_URI = os.getenv("mongodb://aaroha:aaroha@<hostname>/?ssl=true&replicaSet=a
 # Initialize Flask app
 app = Flask(__name__)
 
+# Initialize Telegram bot and application
+bot = Bot(token=BOT_TOKEN)
+application = Application.builder().token(BOT_TOKEN).build()
+
+# Function to shorten links using AdLinkFly API
 def shorten_link(url, alias=None):
-    """Shortens the URL using AdLinkFly API."""
     api_url = f"{ADLINKFLY_DOMAIN}/api?api={ADLINKFLY_API_KEY}&url={url}"
     if alias:
         api_url += f"&alias={alias}"
@@ -30,24 +34,20 @@ def shorten_link(url, alias=None):
     else:
         return None
 
+# Command Handlers
 def start(update: Update, context: CallbackContext):
-    """Start command handler."""
     update.message.reply_text("Send me any link, and I'll shorten it for you using AdLinkFly!")
 
 def help_command(update: Update, context: CallbackContext):
-    """Help command handler."""
     update.message.reply_text("Commands:\n/start - Start the bot\n/help - Get help information\n/shorten <url> [alias] - Shorten a URL with an optional alias\n/api - Get API usage details\n/features - See bot features\n/stats <shortened_url> - Get link analytics")
 
 def api_info(update: Update, context: CallbackContext):
-    """API information command handler."""
     update.message.reply_text("This bot uses the AdLinkFly API to shorten URLs. Ensure your API key is valid and your AdLinkFly instance is active.")
 
 def features(update: Update, context: CallbackContext):
-    """Features command handler."""
     update.message.reply_text("Features:\n✅ Shorten URLs with AdLinkFly\n✅ Custom aliases for links\n✅ Fetch link analytics\n✅ Batch URL shortening\n✅ Domain blacklist filtering\n✅ Hosted on Render for high availability")
 
 def shorten(update: Update, context: CallbackContext):
-    """Shorten a URL."""
     if not context.args:
         update.message.reply_text("Please provide a URL to shorten!")
         return
@@ -67,7 +67,6 @@ def shorten(update: Update, context: CallbackContext):
         update.message.reply_text("Failed to shorten the link. Please try again later!")
 
 def detect_and_shorten_links(update: Update, context: CallbackContext):
-    """Detect URLs in the message and shorten them."""
     message_text = update.message.text
     urls = re.findall(r'https?://\S+', message_text)
     
@@ -89,7 +88,6 @@ def detect_and_shorten_links(update: Update, context: CallbackContext):
         update.message.reply_text(message_text)
 
 def get_link_stats(update: Update, context: CallbackContext):
-    """Get analytics for a shortened URL."""
     if not context.args:
         update.message.reply_text("Please provide a shortened URL to fetch stats.")
         return
@@ -105,30 +103,27 @@ def get_link_stats(update: Update, context: CallbackContext):
     else:
         update.message.reply_text("Failed to retrieve stats. Please try again later!")
 
-# Flask route to keep bot alive
+# Flask route to keep bot alive and handle incoming requests
 @app.route("/", methods=["GET", "POST"])
 def webhook():
-    """Web route to handle webhook from Telegram."""
     if request.method == "POST":
         update = Update.de_json(request.get_json(), bot)
         application.process_update(update)
     return "OK"
 
 if __name__ == "__main__":
-    # Initialize the bot and the application
-    bot = Bot(token=BOT_TOKEN)  # Corrected this line
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Add command handlers
+    # Set the webhook URL for Telegram
+    webhook_url = "https://n-2qlu.onrender.com"  # Replace with your actual Render URL
+    bot.set_webhook(url=webhook_url)
+
+    # Add handlers to the application
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("api", api_info))
     application.add_handler(CommandHandler("features", features))
     application.add_handler(CommandHandler("shorten", shorten))
     application.add_handler(CommandHandler("stats", get_link_stats))
-    
-    # Add message handler to detect and shorten links
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_and_shorten_links))
-    
+
     # Run Flask app on Render (or locally)
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
