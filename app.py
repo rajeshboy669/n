@@ -110,12 +110,12 @@ def get_link_stats(update: Update, context: CallbackContext):
 def webhook():
     if request.method == "POST":
         update = Update.de_json(request.get_json(), bot)
-        application.process_update(update)
+        asyncio.run(application.process_update(update))  # Use asyncio.run to await this coroutine
     return "OK"
 
 # Async function to set webhook
 async def set_webhook():
-    webhook_url = "https://n-2qlu.onrender.com/"  # Replace with your actual Render URL
+    webhook_url = "https://your-app-name.onrender.com/"  # Replace with your actual Render URL
     await bot.set_webhook(url=webhook_url)
 
 if __name__ == "__main__":
