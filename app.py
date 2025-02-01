@@ -4,8 +4,10 @@ import requests
 from flask import Flask, request
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from dotenv import load_dotenv
 
 # Load environment variables
+load_dotenv()
 BOT_TOKEN = os.getenv("6730567676:AAFfMaZCIbPUj2X9T7ZdVWsFtwlwRd3oN14")
 ADLINKFLY_API_KEY = os.getenv("1bcc116665dd337316ea03fcf10b088074fe4993")
 ADLINKFLY_DOMAIN = os.getenv("vipurl.in")
