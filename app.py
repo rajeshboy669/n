@@ -8,11 +8,11 @@ from pymongo import MongoClient
 from urllib.parse import urlparse
 
 # Load environment variables
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADLINKFLY_API_KEY = os.getenv("ADLINKFLY_API_KEY")
-ADLINKFLY_DOMAIN = os.getenv("ADLINKFLY_DOMAIN")
+BOT_TOKEN = os.getenv("6730567676:AAFfMaZCIbPUj2X9T7ZdVWsFtwlwRd3oN14")
+ADLINKFLY_API_KEY = os.getenv("1bcc116665dd337316ea03fcf10b088074fe4993")
+ADLINKFLY_DOMAIN = os.getenv("vipurl.in")
 BLACKLISTED_DOMAINS = ["example.com", "spam.com"]  # Add blacklisted domains here
-MONGO_URI = os.getenv("MONGO_URI")  # MongoDB connection URI
+MONGO_URI = os.getenv("mongodb://aaroha:aaroha@<hostname>/?ssl=true&replicaSet=atlas-dut4lu-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0")  # MongoDB connection URI
 
 # Connect to MongoDB
 client = MongoClient(MONGO_URI)
