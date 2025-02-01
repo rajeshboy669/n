@@ -1,18 +1,20 @@
 import os
 import re
+import asyncio
 from flask import Flask, request
 from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
+
+# Set environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADLINKFLY_API_KEY = os.getenv("1bcc116665dd337316ea03fcf10b088074fe4993")
-ADLINKFLY_DOMAIN = os.getenv("vipurl.in")
-BLACKLISTED_DOMAINS = ["example.com", "spam.com"]  # Add blacklisted domains here
-MONGO_URI = os.getenv("mongodb://aaroha:aaroha@<hostname>/?ssl=true&replicaSet=atlas-dut4lu-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0")  # MongoDB connection URI
+ADLINKFLY_API_KEY = os.getenv("ADLINKFLY_API_KEY")
+ADLINKFLY_DOMAIN = os.getenv("ADLINKFLY_DOMAIN")
+BLACKLISTED_DOMAINS = ["example.com", "spam.com"]
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -111,10 +113,14 @@ def webhook():
         application.process_update(update)
     return "OK"
 
+# Async function to set webhook
+async def set_webhook():
+    webhook_url = "https://n-2qlu.onrender.com/"  # Replace with your actual Render URL
+    await bot.set_webhook(url=webhook_url)
+
 if __name__ == "__main__":
-    # Set the webhook URL for Telegram
-    webhook_url = "https://n-2qlu.onrender.com"  # Replace with your actual Render URL
-    bot.set_webhook(url=webhook_url)
+    # Run the async set_webhook function in an asyncio event loop
+    asyncio.run(set_webhook())
 
     # Add handlers to the application
     application.add_handler(CommandHandler("start", start))
