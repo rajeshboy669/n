@@ -2,10 +2,8 @@ import os
 import re
 import requests
 from flask import Flask, request
-from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, filters, CallbackContext, Dispatcher
-from pymongo import MongoClient
-from urllib.parse import urlparse
+from telegram import Update, Bot
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 # Load environment variables
 BOT_TOKEN = os.getenv("6730567676:AAFfMaZCIbPUj2X9T7ZdVWsFtwlwRd3oN14")
@@ -14,145 +12,82 @@ ADLINKFLY_DOMAIN = os.getenv("vipurl.in")
 BLACKLISTED_DOMAINS = ["example.com", "spam.com"]  # Add blacklisted domains here
 MONGO_URI = os.getenv("mongodb://aaroha:aaroha@<hostname>/?ssl=true&replicaSet=atlas-dut4lu-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0")  # MongoDB connection URI
 
-# Connect to MongoDB
-client = MongoClient(MONGO_URI)
-db = client.get_database()  # Connect to the database
-users_collection = db.users  # Access the 'users' collection
-
+# Initialize Flask app
 app = Flask(__name__)
 
-def is_valid_url(url):
-    """Check if the provided URL is well-formed"""
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])  # Ensure URL has a scheme (http/https) and domain
-    except ValueError:
-        return False
-
-def shorten_link(url, user_api_key, alias=None):
-    """Shorten the given URL using AdLinkFly API with user-specific API key"""
-    if not is_valid_url(url):
-        return None  # Invalid URL
-    
-    api_url = f"{ADLINKFLY_DOMAIN}/api?api={user_api_key}&url={url}"
+def shorten_link(url, alias=None):
+    """Shortens the URL using AdLinkFly API."""
+    api_url = f"{ADLINKFLY_DOMAIN}/api?api={ADLINKFLY_API_KEY}&url={url}"
     if alias:
         api_url += f"&alias={alias}"
+    response = requests.get(api_url)
+    data = response.json()
     
-    try:
-        response = requests.get(api_url, timeout=10)  # Add a timeout to avoid hanging indefinitely
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        data = response.json()
-        
-        if data.get("status") == "success":
-            return data["shortenedUrl"]
-        else:
-            return None
-    except requests.exceptions.Timeout:
-        print("Request to AdLinkFly timed out.")
-    except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
-    return None
+    if data.get("status") == "success":
+        return data["shortenedUrl"]
+    else:
+        return None
 
 def start(update: Update, context: CallbackContext):
-    """Start command, ask user to provide their API key"""
-    user_id = update.message.from_user.id
-    
-    user = users_collection.find_one({"user_id": user_id})
-    if not user:
-        # Ask user for their API key
-        update.message.reply_text("Please provide your API key to get started using /api <API_KEY>.")
-        return
-    else:
-        update.message.reply_text("You are already authenticated. Use /shorten to shorten links.")
+    """Start command handler."""
+    update.message.reply_text("Send me any link, and I'll shorten it for you using AdLinkFly!")
 
-def api(update: Update, context: CallbackContext):
-    """Authenticate user using their API key"""
-    user_id = update.message.from_user.id
-    
-    if not context.args:
-        update.message.reply_text("Please provide your API key.")
-        return
-    
-    api_key = context.args[0]
-    
-    # Check if the API key is valid
-    try:
-        api_url = f"{ADLINKFLY_DOMAIN}/api?api={api_key}&url=https://example.com"
-        response = requests.get(api_url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+def help_command(update: Update, context: CallbackContext):
+    """Help command handler."""
+    update.message.reply_text("Commands:\n/start - Start the bot\n/help - Get help information\n/shorten <url> [alias] - Shorten a URL with an optional alias\n/api - Get API usage details\n/features - See bot features\n/stats <shortened_url> - Get link analytics")
 
-        if data.get("status") != "success":
-            update.message.reply_text("Invalid API key. Please try again with a valid one.")
-            return
-    except requests.exceptions.RequestException:
-        update.message.reply_text("Failed to verify the API key. Please try again.")
-        return
-    
-    # Store the API key in user record
-    users_collection.update_one(
-        {"user_id": user_id},
-        {"$set": {"api_key": api_key}},
-        upsert=True  # If the user doesn't exist, create a new record
-    )
-    
-    update.message.reply_text(f"Authenticated successfully with API key: {api_key}. You can now use /shorten to shorten URLs.")
+def api_info(update: Update, context: CallbackContext):
+    """API information command handler."""
+    update.message.reply_text("This bot uses the AdLinkFly API to shorten URLs. Ensure your API key is valid and your AdLinkFly instance is active.")
+
+def features(update: Update, context: CallbackContext):
+    """Features command handler."""
+    update.message.reply_text("Features:\n✅ Shorten URLs with AdLinkFly\n✅ Custom aliases for links\n✅ Fetch link analytics\n✅ Batch URL shortening\n✅ Domain blacklist filtering\n✅ Hosted on Render for high availability")
 
 def shorten(update: Update, context: CallbackContext):
-    """Handle shortening a single URL provided by the user"""
-    user_id = update.message.from_user.id
-    
-    user = users_collection.find_one({"user_id": user_id})
-    if not user or "api_key" not in user:
-        update.message.reply_text("You need to authenticate first using /api <API_KEY>.")
-        return
-    
+    """Shorten a URL."""
     if not context.args:
         update.message.reply_text("Please provide a URL to shorten!")
         return
     
     original_url = context.args[0]
     alias = context.args[1] if len(context.args) > 1 else None
-    user_api_key = user["api_key"]  # Get the user's own API key from the database
     
     if any(domain in original_url for domain in BLACKLISTED_DOMAINS):
         update.message.reply_text("This domain is not allowed!")
         return
     
-    short_url = shorten_link(original_url, user_api_key, alias)
+    short_url = shorten_link(original_url, alias)
     
     if short_url:
-        # Optionally, store the shortened URL in the user's record
-        users_collection.update_one(
-            {"user_id": user_id},
-            {"$push": {"shortened_links": short_url}},
-            upsert=True
-        )
-        update.message.reply_text(f"Shortened URL: {short_url}")
+        update.message.reply_text(short_url)
     else:
         update.message.reply_text("Failed to shorten the link. Please try again later!")
 
-def view_links(update: Update, context: CallbackContext):
-    """Allow users to view their previously shortened links"""
-    user_id = update.message.from_user.id
+def detect_and_shorten_links(update: Update, context: CallbackContext):
+    """Detect URLs in the message and shorten them."""
+    message_text = update.message.text
+    urls = re.findall(r'https?://\S+', message_text)
     
-    user = users_collection.find_one({"user_id": user_id})
-    if not user:
-        update.message.reply_text("You need to authenticate first using /api <API_KEY>.")
+    if not urls:
         return
     
-    shortened_links = user.get("shortened_links", [])
+    shortened_urls = []
+    for url in urls:
+        if any(domain in url for domain in BLACKLISTED_DOMAINS):
+            continue
+        short_url = shorten_link(url)
+        if short_url:
+            message_text = message_text.replace(url, short_url)
+            shortened_urls.append(short_url)
     
-    if not shortened_links:
-        update.message.reply_text("You haven't shortened any links yet.")
-        return
-    
-    # Display the user's shortened links
-    links_message = "\n".join(shortened_links)
-    update.message.reply_text(f"Your shortened links:\n{links_message}")
+    if len(shortened_urls) == 1:
+        update.message.reply_text(shortened_urls[0])
+    else:
+        update.message.reply_text(message_text)
 
-def stats(update: Update, context: CallbackContext):
-    """Get analytics for a shortened URL"""
+def get_link_stats(update: Update, context: CallbackContext):
+    """Get analytics for a shortened URL."""
     if not context.args:
         update.message.reply_text("Please provide a shortened URL to fetch stats.")
         return
@@ -168,60 +103,30 @@ def stats(update: Update, context: CallbackContext):
     else:
         update.message.reply_text("Failed to retrieve stats. Please try again later!")
 
-def help_command(update: Update, context: CallbackContext):
-    """Help command that lists all available bot commands"""
-    help_text = """
-    Available commands:
-    /start - Start the bot
-    /api <API_KEY> - Authenticate with your API key
-    /shorten <URL> [alias] - Shorten a URL with an optional alias
-    /view_links - View all your shortened links
-    /stats <shortened_url> - Get analytics for a shortened URL
-    /help - Get a list of available commands
-    /features - See bot features
-    /api_info - Get details about the API used for shortening links
-    """
-    update.message.reply_text(help_text)
-
-def features(update: Update, context: CallbackContext):
-    """List all the features of the bot"""
-    update.message.reply_text("""
-    Features:
-    ✅ Shorten URLs with AdLinkFly
-    ✅ Custom aliases for links
-    ✅ Fetch link analytics
-    ✅ Batch URL shortening
-    ✅ Domain blacklist filtering
-    ✅ Hosted on Render for high availability
-    """)
-
-def api_info(update: Update, context: CallbackContext):
-    """Provide information about the API the bot uses"""
-    update.message.reply_text("This bot uses the AdLinkFly API to shorten URLs. Ensure your API key is valid and your AdLinkFly instance is active.")
-
 # Flask route to keep bot alive
 @app.route("/", methods=["GET", "POST"])
 def webhook():
+    """Web route to handle webhook from Telegram."""
     if request.method == "POST":
         update = Update.de_json(request.get_json(), bot)
-        dp.process_update(update)
+        application.process_update(update)
     return "OK"
 
 if __name__ == "__main__":
-    from telegram import Bot
-    from telegram.ext import Dispatcher
-    
+    # Initialize the bot and the application
     bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher(bot, None, use_context=True)
+    application = Application.builder().token(BOT_TOKEN).build()
     
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("api", api))
-    dp.add_handler(CommandHandler("shorten", shorten))
-    dp.add_handler(CommandHandler("view_links", view_links))
-    dp.add_handler(CommandHandler("stats", stats))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(CommandHandler("features", features))
-    dp.add_handler(CommandHandler("api_info", api_info))
+    # Add command handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("api", api_info))
+    application.add_handler(CommandHandler("features", features))
+    application.add_handler(CommandHandler("shorten", shorten))
+    application.add_handler(CommandHandler("stats", get_link_stats))
     
-    # Run Flask app on Render
+    # Add message handler to detect and shorten links
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_and_shorten_links))
+    
+    # Run Flask app on Render (or locally)
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
