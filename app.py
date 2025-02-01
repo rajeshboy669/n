@@ -3,7 +3,7 @@ import re
 import requests
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext, Dispatcher
+from telegram.ext import CommandHandler, MessageHandler, filters, CallbackContext, Dispatcher
 from pymongo import MongoClient
 from urllib.parse import urlparse
 
