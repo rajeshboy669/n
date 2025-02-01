@@ -115,7 +115,7 @@ def webhook():
 
 # Async function to set webhook
 async def set_webhook():
-    webhook_url = "https://your-app-name.onrender.com/"  # Replace with your actual Render URL
+    webhook_url = "https://n-2qlu.onrender.com/"  # Replace with your actual Render URL
     await bot.set_webhook(url=webhook_url)
 
 if __name__ == "__main__":
