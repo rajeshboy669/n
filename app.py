@@ -1,15 +1,15 @@
 import os
+import asyncio
 from flask import Flask, request
-import telegram
-from telegram import Update
-from telegram.ext import Dispatcher, CommandHandler, CallbackContext
+from telegram import Update, Bot
+from telegram.ext import Application, CommandHandler
 
 TOKEN = os.getenv("BOT_TOKEN")
-bot = telegram.Bot(token=TOKEN)
+bot = Bot(token=TOKEN)
 
 app = Flask(__name__)
 
-def start(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context) -> None:
     message = (
         "I am nanolinks.in , Bulk Link Converter. I Can Convert Links Directly From Your nanolinks.in Account,\n\n"
         "1. Go To 👉 https://nanolinks.in/member/tools/api\n"
@@ -26,19 +26,18 @@ def start(update: Update, context: CallbackContext) -> None:
         "Anyone who want to use any other shortener instead of nanolinks.in, contact at 👉 @filmy_boyy (all shortener support available.)\n\n"
         "- Made With ❤️ By @filmy_boyy -"
     )
-    update.message.reply_text(message)
+    await update.message.reply_text(message)
 
 @app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
+async def webhook():
     """Process Telegram updates"""
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
+    data = request.get_json()
+    update = Update.de_json(data, bot)
+    await application.process_update(update)
     return "OK", 200
 
 if __name__ == "__main__":
-    from telegram.ext import Dispatcher
-
-    dispatcher = Dispatcher(bot, None, use_context=True)
-    dispatcher.add_handler(CommandHandler("start", start))
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
 
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
